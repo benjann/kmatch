@@ -1,6 +1,7 @@
 {smcl}
-{* 09may2019}{...}
-{hi:help kmatch}
+{* 29may2019}{...}
+{hi:help kmatch}{...}
+{right:{help kmatch##syntax:Syntax} - {help kmatch##desc:Description} - {help kmatch##mdoptions:Options} - {help kmatch##ex:Examples} - {help kmatch##eret:Stored results} - {help kmatch##refs:References}}
 {hline}
 
 {title:Title}
@@ -10,6 +11,7 @@
     and regression adjustment
 
 
+{marker syntax}{...}
 {title:Syntax}
 
 {pstd}
@@ -86,12 +88,13 @@
 
 {pstd}
     {help varname:{it:tvar}} is the treatment variable; {help varlist:{it:xvars}}
+    and {help kmatch##ematch:{it:emvars}}
     are covariates to be matched/balanced; {help varlist:{it:ovars}} are outcome
     variables; {help varlist:{it:avars}} are adjustment variables. Multiple
-    outcome equations may be specified, but each outcome variable can only be
-    specified once. {help varlist:{it:xvars}} and {help varlist:{it:avars}} may
+    outcome equations may be specified. {help varlist:{it:xvars}} and {help varlist:{it:avars}} may
     contain {help fvvarlist:factor variables}; {help kmatch##ematch:{it:emvars}}
-    may not contain {help kmatch##ematch:coarsening rules}.
+    may contain {help kmatch##ematch:coarsening rules}; {cmd:pweight}s, {cmd:iweight}s,
+    and {cmd:fweight}s are allowed, see help {help weight}.
 
 {pstd}
     Bandwidth selection plot
@@ -505,70 +508,110 @@
     {p_end}
 {synoptline}
 
-{pstd}
-    {cmd:pweight}s, {cmd:iweight}s, and {cmd:fweight}s are allowed; see help {help weight}.
 
-
+{marker desc}{...}
 {title:Description}
 
 {pstd}
-    {cmd:kmatch} matches treated and untreated observations with respect to
-    covariates {it:xvars} and, if outcome variables {it:ovars} are provided,
-    estimates treatment effects based on the matched observations. If
-    {it:avars} is also specified, treatment effects estimation includes
-    regression adjustment with respect to {it:avars} after matching
-    (equivalent to the bias-correction proposed by Abadie and Imbens 2011).
+    {cmd:kmatch} matches or balances treated and untreated observations with
+    respect to covariates and, if outcome variables are provided, estimates
+    treatment effects based on the matched/balanced observations, possibly
+    including post-matching regression adjustment. Several matching or balancing
+    commands are available:
 
-{pstd}
+{pmore}
     {cmd:kmatch md} applies multivariate-distance matching (Mahalanobis
-    matching by default); {cmd:kmatch ps} applies propensity-score matching. By
-    default, a kernel function will be used to determine and weight the
-    matches (see, e.g., Heckman et al. 1998a, 1998b). Alternatively, if the
-    {helpb kmatch##nn:nn()} option is specified, nearest-neighbor matching will
-    be applied. For kernel matching, {cmd:kmatch} offers several methods for data-driven
-    bandwidth selection; see the {helpb kmatch##bwidth:bwidth()} option. If
-    cross-validation is employed, the {cmd:kmatch cvplot} command can be used
-    to display a plot of the cross-validation results.
+    matching by default). A kernel function will be used to
+    determine and weight the matches (see, e.g., Heckman et al. 1998a, 1998b).
+    Alternatively, if the {helpb kmatch##nn:nn()} option is specified,
+    nearest-neighbor matching will be applied. For kernel matching, several
+    methods for data-driven bandwidth selection are offered; see the
+    {helpb kmatch##bwidth:bwidth()} option. If covariates ({it:avars})
+    are specified for the outcome variables, treatment effects estimation will
+    include regression adjustment (equivalent to the bias-correction proposed
+    by Abadie and Imbens 2011).
+
+{pmore}
+    {cmd:kmatch ps} applies propensity-score matching, using kernel matching or
+    nearest-neighbor matching and possibly including regression adjustment
+    as described for {cmd:kmatch md}.
+
+{pmore}
+    {cmd:kmatch em} applies exact matching or coarsened exact matching
+    (Iacus et al. 2012). See below for information on how to specify
+    {help kmatch##ematch:coarsening rules} for the covariates. Exact matching is
+    also available with {cmd:kmatch md} and {cmd:kmatch ps} through the
+    {helpb kmatch##ematch:ematch()} option.
+
+{pmore}
+    {cmd:kmatch eb} applies entropy balancing (Hainmueller 2012). Entropy balancing
+    is also available as a refinement in {cmd:kmatch md}, {cmd:kmatch ps}, {cmd:kmatch em},
+    and {cmd:kmatch ipw} through the {cmd:ebalance()} option.
+
+{pmore}
+    {cmd:kmatch ipw} applies inverse probability weighting (IPW).
+
+{pmore}
+    {cmd:kmatch ra} applies regression adjustment. Regression adjustment is
+    also supported by all of the above commands. Use {cmd:kmatch ra} only if
+    you want to compute raw regression-adjustment estimates without matching or
+    reweighting.
 
 {pstd}
-    {cmd:kmatch} also supports exact matching, either using command
-    {cmd:kmatch em} or using the {helpb kmatch##ematch:ematch()} option that can
-    be applied to {cmd:kmatch md} and {cmd:kmatch ps}.
+    After running one of the above commands, several post-estimation commands
+    are available. A first set of commands can be used to evaluate the
+    balancing of the data:
+
+{pmore}
+    {cmd:kmatch summarize} reports means and variances (and, optionally,
+    skewnesses) of the covariates for the treated and the untreated before
+    and after matching.
+
+{pmore}
+    {cmd:kmatch density} displays kernel density estimates of the specified
+    variable(s) before and after matching. For {cmd:kmatch ps} and
+    {cmd:kmatch ipw}, the density of the propensity score is displayed by
+    default.
+
+{pmore}
+    {cmd:kmatch cumul} is like {cmd:kmatch density}, but displays cumulative
+    distributions.
+
+{pmore}
+    {cmd:kmatch box} is like {cmd:kmatch density}, but displays box plots.
 
 {pstd}
-    Furthermore, {cmd:kmatch} supports some balancing procedures that are not directly based on
-    matching. In particular, {cmd:kmatch eb} performs entropy balancing (Hainmueller 2012)
-    and {cmd:kmatch ipw} implements inverse probability weighting (IPW). Entropy balancing can
-    also be applied as a second stage refinement after one of the other procedures using the
-    {cmd:ebalance()} option.
+    A second set of post-estimation commands can be used to evaluate how the
+    common support deviates from the overall sample. If some of the
+    observations have been excluded from the matching solution due to lack of
+    common support, generalizability of the obtained results may be
+    compromised. The following commands are helpful to compare matched and
+    unmatched observations in such a situation:
+
+{pmore}
+    {cmd:kmatch csummarize} reports means and variances (and, optionally,
+    skewnesses) of the covariates in the matched sample, the unmatched sample,
+    and the overall sample.
+
+{pmore}
+    {cmd:kmatch cdensity} displays kernel density estimates of the specified
+    variable(s) in the matched sample, the unmatched sample,
+    and the overall sample. For {cmd:kmatch ps} and
+    {cmd:kmatch ipw}, the density of the propensity score is displayed by
+    default.
+
+{pmore}
+    {cmd:kmatch ccumul} is like {cmd:kmatch cdensity}, but displays cumulative
+    distributions.
+
+{pmore}
+    {cmd:kmatch cbox} is like {cmd:kmatch cdensity}, but displays box plots.
 
 {pstd}
-    Finally, {cmd:kmatch ra} computes regression adjustment estimates. All of the
-    above commands also apply regression adjustment if {it:avars} are specified. Use
-    {cmd:kmatch ra} only if you want to compute raw regression adjustment estimates
-    without any matching or reweighting.
-
-{pstd}
-    After running one of the above commands, several tools for
-    evaluating the balancing of the data are available. {cmd:kmatch summarize}
-    reports means and variances of the covariates for the treated and the
-    untreated in the raw and matched data. {cmd:kmatch density} displays kernel
-    density estimates of the specified variable(s) before and after matching
-    (for {cmd:kmatch ps} and {cmd:kmatch ipw}, {cmd:kmatch density} displays the density of the
-    propensity score if no variables are specified). {cmd:kmatch cumul} and
-    {cmd:kmatch box} are like {cmd:kmatch density}, but display cumulative
-    distributions or box plots.
-
-{pstd}
-    Some observations may be excluded from a matching solution due
-    to lack of common support. Such a restriction of the sample affects the
-    generalizability of the obtained results. {cmd:kmatch} provides several
-    commands to evaluate how the matched and the unmatched observations deviate
-    from the overall sample. {cmd:kmatch csummarize} reports the means and
-    variances of the covariates for the matched, the unmatched, and the overall
-    sample. Likewise,
-    {cmd:kmatch cdensity}, {cmd:kmatch ccumul}, and {cmd:kmatch cbox} display
-    density estimates, cumulative distributions, and box plots.
+    Finally, post-estimation command {cmd:kmatch cvplot} can be used
+    to display the trace of the search algorithm after {cmd:kmatch md} or
+    {cmd:kmatch ps} if cross-validation has been employed for
+    bandwidth selection.
 
 {pstd}
     {cmd:kmatch} requires {cmd:kdens} and {cmd:moremata}
@@ -1310,7 +1353,7 @@
     (see {browse "http://ideas.repec.org/p/bss/wpaper/32.html":Jann 2019}),
     assuming the matching or balancing weights to be fixed. Assuming the weights
     to be fixed is an oversimplification that may bias the results. My experience
-    from some limited simulations is that the influence-function 
+    from some limited simulations is that the influence-function
     standard errors will tend to be conservative (i.e. to large; except for
     {cmd:kmatch ra}, for which the influence-function standard errors are
     consistent). However, applying post-matching regression adjustment seems to
@@ -1326,7 +1369,7 @@
     exception of nearest-neighbor matching, where the bootstrap standard errors
     tend to be conservative. For nearest-neighbor matching it has also been
     shown theoretically that the boostrap is not consistent (Abadie and Imbens
-    2008). Official Stata's {helpb teffetcs nnmatch} and 
+    2008). Official Stata's {helpb teffetcs nnmatch} and
     {helpb teffetcs psmatch} will produce consistent standard errors for nearest-neighbor
     matching.
 
@@ -1677,108 +1720,323 @@
     available kernels.
 
 
+{marker ex}{...}
 {title:Examples}
 
-{pstd}
-    Mahalanobis-distance kernel matching with post-estimation balancing statistics and plots
+        {help kmatch##exmd:Multivariate-distance matching}
+        {help kmatch##exps:Propensity-score matching}
+        {help kmatch##exem:Coarsened exact matching}
+        {help kmatch##exeb:Entropy balancing}
+        {help kmatch##exipw:Inverse probability weighting}
+        {help kmatch##exra:Regression adjustment}
+
+        {help kmatch##exmdv:Multiple outcome variables}
+        {help kmatch##exte:ATE, ATT, ATC, NATE, and potential outcome means}
+        {help kmatch##exsubpop:Results by subpopulations}
+        {help kmatch##exbal:Balancing diagnostics}
+        {help kmatch##excomsup:Common support diagnostics}
+        {help kmatch##exbw:Bandwidth selection}
+
+{dlgtab:Load example data}
 
 {p 8 12 2}. {stata webuse cattaneo2, clear}{p_end}
-{p 8 12 2}. {stata kmatch md mbsmoke mmarried mage fbaby medu (bweight), att}{p_end}
+
+{marker exmd}{...}
+{dlgtab:Multivariate-distance matching}
+
+{pstd}
+    Average treatment effect on the treated of {cmd:mbsmoke} on {cmd:bweight} using
+    Mahalanobis-distance kernel matching
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage prenatal1 mmarried fbaby (bweight), att}{p_end}
+
+{pstd}
+    Refit the above model, but require exact matches on the binary variables
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage (bweight), ematch(prenatal1 mmarried fbaby) att}{p_end}
+
+{pstd}
+    Match on two continuous variables, {cmd:mage} and {cmd:fage}, and apply post-matching
+    regression adjustment
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage fage (bweight = mage fage), ematch(prenatal1 mmarried fbaby) att}{p_end}
+
+{pstd}
+    Use nearest-neighbor matching (5 neighbors; with replacement) instead of kernel matching
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage fage (bweight = mage fage), ematch(prenatal1 mmarried fbaby) att nn(5)}{p_end}
+
+{pstd}
+    Compare results to {helpb teffects nnmatch}
+
+{p 8 12 2}. {stata teffects nnmatch (bweight mage fage) (mbsmoke), ematch(prenatal1 mmarried fbaby) biasadj(mage fage) atet nn(5)}
+
+{pstd}
+    Use nearest-neighbor matching without replacement (1 neighbor)
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage fage (bweight = mage fage), ematch(prenatal1 mmarried fbaby) att nn(1) wor}{p_end}
+
+{pstd}
+    Use kernel matching including a doubly-weighted propensity score in the Mahalanobis distances
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage prenatal1 mmarried fbaby (bweight), att psvars(fage fedu) psweight(2)}{p_end}
+
+{marker exps}{...}
+{dlgtab:Propensity-score matching}
+
+{pstd}
+    Average treatment effect on the treated of {cmd:mbsmoke} on {cmd:bweight} using kernel matching
+    based on a logistic model (the default) to predict
+    each subject's propensity score
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att}{p_end}
+
+{pstd}
+    Refit the above model, but require exact matches on the binary variables
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage (bweight), ematch(prenatal1 mmarried fbaby) att}{p_end}
+
+{pstd}
+    Include post-matching regression adjustment for the continuous covariates
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage (bweight = mage fage), ematch(prenatal1 mmarried fbaby) att}{p_end}
+
+{pstd}
+    Use nearest-neighbor matching (5 neighbors; with replacement) instead of kernel matching
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att nn(5)}{p_end}
+
+{pstd}
+    Compare results to {helpb teffects nnmatch}
+
+{p 8 12 2}. {stata teffects psmatch (bweight) (mbsmoke mage fage prenatal1 mmarried fbaby), atet nn(5)}
+
+{pstd}
+    Use nearest-neighbor matching, but only consider a pair of observations a
+    match if the absolute difference in the propensity score is less than 0.005
+    (half a percentage point)
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att nn(5) caliper(0.005)}{p_end}
+
+{pstd}
+    Use ridge matching
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att ridge}{p_end}
+
+{pstd}
+    Use local-linear matching (set the ridge parameter to 0)
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att ridge(0)}{p_end}
+
+{marker exem}{...}
+{dlgtab:Coarsened exact matching}
+
+{pstd}
+    Coarsen the continuous covariates using Sturges' formula
+
+{p 8 12 2}. {stata kmatch em mbsmoke (sturges) mage fage (asis) prenatal1 mmarried fbaby (bweight), att}{p_end}
+
+{pstd}
+    The used cutpoints are stored in {cmd:e(C_}{it:varname}{it:)}
+
+{p 8 12 2}. {stata matrix list e(C_mage)}{p_end}
+{p 8 12 2}. {stata matrix list e(C_fage)}{p_end}
+
+{pstd}
+    Coarsen the continuous covariates using 9 equally-spaced
+    cutpoints
+
+{p 8 12 2}. {stata kmatch em mbsmoke (#9) mage fage (asis) prenatal1 mmarried fbaby (bweight), att}{p_end}
+
+{pstd}
+    Coarsen the continuous covariates using predefined cutpoints
+
+{p 8 12 2}. {stata kmatch em mbsmoke (10(5)40) mage (0(5)60) fage (asis) prenatal1 mmarried fbaby (bweight), att}{p_end}
+
+{marker exeb}{...}
+{dlgtab:Entropy balancing}
+
+{pstd}
+    Balance first moments (means)
+
+{p 8 12 2}. {stata kmatch eb mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att}{p_end}
+
+{pstd}
+    If successful, entropy balancing perfectly balances the moments (apart from
+    roundoff error), as can be confirmed by the following command
+
+{p 8 12 2}. {stata kmatch summarize, meanonly}{p_end}
+
+{pstd}
+    Balance first moments (means), second moments (variances), and covariances
+
+{p 8 12 2}. {stata kmatch eb mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att targets(2) covariances}{p_end}
+
+{pstd}
+    Treatment effect estimates will be set to 0 and flagged as omitted if
+    the balancing tolerance cannot be met
+
+{p 8 12 2}. {stata kmatch eb mbsmoke mage fage prenatal1 mmarried fbaby (bweight) if !(prenatal1==0&mbsmoke==0), att}{p_end}
+
+{marker exipw}{...}
+{dlgtab:Inverse probability weighting (IPW)}
+
+{pstd}
+    Inverse probability weighting based on a probit model to predict
+    each subject's propensity score
+
+{p 8 12 2}. {stata kmatch ipw mbsmoke mage fage prenatal1 mmarried fbaby (bweight), pscmd(probit) att}{p_end}
+
+{pstd}
+    Compare to {helpb teffects ipw}
+
+{p 8 12 2}. {stata teffects ipw (bweight) (mbsmoke mage fage prenatal1 mmarried fbaby, probit), atet}{p_end}
+
+{pstd}
+     Inverse-probability-weighted regression adjustment
+
+{p 8 12 2}. {stata kmatch ipw mbsmoke mage fage prenatal1 mmarried fbaby (bweight = mage fage prenatal1 mmarried fbaby), pscmd(probit) att}{p_end}
+
+{pstd}
+    Compare to {helpb teffects ipwra}
+
+{p 8 12 2}. {stata teffects ipwra (bweight mage fage prenatal1 mmarried fbaby) (mbsmoke mage fage prenatal1 mmarried fbaby, probit), atet}{p_end}
+
+{marker exra}{...}
+{dlgtab:Regression adjustment}
+
+{pstd}
+    Regression adjustment without matching or reweighting
+
+{p 8 12 2}. {stata kmatch ra mbsmoke (bweight = mage fage prenatal1 mmarried fbaby), att}{p_end}
+
+{pstd}
+    Compare to {helpb teffects ra}
+
+{p 8 12 2}. {stata teffects ra (bweight mage fage prenatal1 mmarried fbaby) (mbsmoke), atet}{p_end}
+
+{marker exmdv}{...}
+{dlgtab:Multiple outcome variables}
+
+{pstd}
+    Multiple outcome variables or, more generally, multiple outcome equations
+    can be specified in a single call to {cmd:kmatch}. Here is an example
+    in which the same outcome variable is used twice, once without
+    regression adjustment and once with regression adjustment:
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight) (bweight = mage fage prenatal1 mmarried fbaby), att}{p_end}
+
+{pstd}
+    Within each outcome equation multiple outcomes can be specified to reduce
+    the amount of typing. Here is an example with two outcome variables that are both used
+    with and without regression adjustment:
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight lbweight = mage fage prenatal1 mmarried fbaby) (bweight lbweight), att}{p_end}
+
+{pstd}
+    Evaluate balancing by including the covariates as outcomes
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (mage fage prenatal1 mmarried fbaby), att}{p_end}
+
+{marker exte}{...}
+{dlgtab:ATE, ATT, ATC, NATE, and potential outcome means}
+
+{pstd}
+    In the above examples, the average treatment effect on the treated (ATT) was
+    reported. {cmd:kmatch} can also report the average treatment effect (ATE;
+    the default), the average treatment effect on the untreated (ATC), the
+    naive average treatment effect (NATE; i.e. the raw mean difference), as
+    well as the potential outcome means that stand behind there
+    quantities. Here is an example in which all of these quantities are
+    computed in a single call:
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), ate att atc nate po}{p_end}
+
+{pstd}
+    Having all quantities in a single estimation set is convenient if you want
+    to make comparisons:
+
+{p 8 12 2}. {stata test ATT = ATC}{p_end}
+{p 8 12 2}. {stata lincom ATE - NATE}{p_end}
+
+{marker exsubpop}{...}
+{dlgtab:Results by subpopulations}
+
+{pstd}
+    Use the {cmd:over()} option to compute results by subpopulations. The
+    matching/balancing will be performed individually within each subpopulation.
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried (bweight), att over(fbaby)}{p_end}
+{p 8 12 2}. {stata test [0]ATT = [1]ATT}{p_end}
+{p 8 12 2}. {stata lincom [0]ATT - [1]ATT}{p_end}
+
+{marker exbal}{...}
+{dlgtab:Balancing diagnostics}
+
+{p 8 12 2}. {stata kmatch md mbsmoke mage prenatal1 mmarried fbaby (bweight), att}{p_end}
 {p 8 12 2}. {stata kmatch summarize}{p_end}
 {p 8 12 2}. {stata kmatch density mage}{p_end}
 {p 8 12 2}. {stata kmatch cumul mage}{p_end}
 {p 8 12 2}. {stata kmatch box mage}{p_end}
 
-{pstd}
-    Bootstrap standard errors
+{p 8 12 2}. {stata kmatch ps mbsmoke mage prenatal1 mmarried fbaby (bweight), att}{p_end}
+{p 8 12 2}. {stata kmatch density}{p_end}
+{p 8 12 2}. {stata kmatch cumul}{p_end}
+{p 8 12 2}. {stata kmatch box}{p_end}
 
-{p 8 12 2}. {stata kmatch md mbsmoke mmarried mage fbaby medu (bweight), att vce(boot)}{p_end}
-
-{pstd}
-    Mahalanobis-distance nearest-neighbor matching
-
-{p 8 12 2}. {stata kmatch md mbsmoke mmarried mage fbaby medu (bweight), att nn(5)}{p_end}
-{p 8 12 2}. {stata teffects nnmatch (bweight mmarried mage fbaby medu) (mbsmoke), atet nn(5)}{p_end}
+{marker excomsup}{...}
+{dlgtab:Common support diagnostics}
 
 {pstd}
-    Propensity-score kernel matching
+    Depending on situation, not all observations can be matched. Commands
+    {cmd:kmatch csummarize}, {cmd:kmatch cdensity}, {cmd:kmatch ccumul},
+    {cmd:kmatch cbox} can be used to evaluate how matched, unmatched, and the
+    total sample differ.
 
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att}{p_end}
-
-{pstd}
-    Propensity-score ridge matching
-
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att ridge}{p_end}
-
-{pstd}
-    Propensity-score nearest-neighbor matching
-
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att nn(5)}{p_end}
-{p 8 12 2}. {stata teffects psmatch (bweight) (mbsmoke mmarried mage fbaby medu), atet nn(5)}{p_end}
-
-{pstd}
-    Propensity-score kernel matching with bias-adjustment (i.e. regression adjustment)
-
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight = mmarried mage fbaby medu), att}{p_end}
-
-{pstd}
-    Inverse probability weighting with regression adjustment
-
-{p 8 12 2}. {stata kmatch ipw mbsmoke mmarried mage fbaby medu (bweight = mmarried mage fbaby medu), att}{p_end}
-
-{pstd}
-    Entropy balancing (balancing means, variances, and covariances)
-
-{p 8 12 2}. {stata kmatch eb mbsmoke mmarried mage fbaby medu (bweight), att targets(2) covariances}{p_end}
-{p 8 12 2}. {stata kmatch summarize}{p_end}
-
-{pstd}
-    Mahalanobis-distance kernel matching including doubly-weighted propensity score
-
-{p 8 12 2}. {stata kmatch md mbsmoke mmarried mage fbaby medu (bweight), att psvars(fage fedu) psweight(2)}{p_end}
-
-{pstd}
-    Mahalanobis-distance kernel matching with additional exact matching variables
-
-{p 8 12 2}. {stata kmatch md mbsmoke mmarried mage fbaby medu (bweight), att ematch(fage fedu)}{p_end}
-
-{pstd}
-    Bandwidth selection and cross-validation diagnostics plot
-
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att atc}{p_end}
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att atc bwidth(cv)}{p_end}
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att atc bwidth(cv bweight)}{p_end}
-{p 8 12 2}. {stata kmatch cvplot, ms(o o) index mlabposition(1 1) sort}{p_end}
-
-{pstd}
-    Common-support diagnostics plots
-
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att bwidth(0.0005)}{p_end}
+{p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att bwidth(0.0005)}{p_end}
 {p 8 12 2}. {stata kmatch csummarize}{p_end}
 {p 8 12 2}. {stata kmatch cdensity}{p_end}
 {p 8 12 2}. {stata kmatch ccumul}{p_end}
 {p 8 12 2}. {stata kmatch cbox}{p_end}
 
-{pstd}
-    Test balancing by adding the covariates as additional outcome variables
-
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight) (mmarried mage fbaby medu), att nate}{p_end}
+{marker exbw}{...}
+{dlgtab:Bandwidth selection}
 
 {pstd}
-    Treatment effects by subpopulation
+    Option {helpb kmatch##bwidth:bwidth()} offers several automatic bandwidth selection
+    methods for kernel matching in {cmd:kmatch md} and
+    {cmd:kmatch ps}. The default is {cmd:bwidth(pm)}, a pair-matching algorithm
+    as proposed by Huber et al. (2013, 2015). The algorithm typically leads to
+    rather small bandwidths.
 
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage medu (bweight), att over(fbaby)}{p_end}
-{p 8 12 2}. {stata test [0]ATT = [1]ATT}{p_end}
-{p 8 12 2}. {stata lincom [0]ATT - [1]ATT}{p_end}
+{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att atc}{p_end}
 
 {pstd}
-    Report ATE, ATT, ATC, NATE, and potential outcome means
+    Typing {cmd:bwidth(cv)} will determine the bandwidth by cross-validation with
+    respect to the mean of the propensity score (in case of {cmd:kmatch ps})
+    or with respect to the means of the covariates (in case of
+    {cmd:kmatch md}).
 
-{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), ate att atc nate po}{p_end}
-{p 8 12 2}. {stata test ATT = ATC}{p_end}
-{p 8 12 2}. {stata test ATE = NATE}{p_end}
+{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att atc bwidth(cv)}{p_end}
+
+{pstd}
+    Furthermore, {cmd:bwidth(cv} {it:cvvar}{cmd:)} will use cross-validation
+    with respect to {it:cvvar} as suggested by Frölich (2004, 2005) and
+    {cmd:bwidth(cv} {it:cvvar}{cmd:, weighted)} will use weighted
+    cross-validation as suggested by Galdo et al. (2008; Section 4.2). Here is
+    an example of the former:
+
+{p 8 12 2}. {stata kmatch ps mbsmoke mmarried mage fbaby medu (bweight), att atc bwidth(cv bweight)}{p_end}
+
+{pstd}
+    The cross-validation algorithm is not guaranteed to find the MISE minimizing
+    bandwidth as there might be local minima or flat regions. You can use command
+    {cmd:kmatch cvplot} to view the trace of the search algorithm:
+
+{p 8 12 2}. {stata kmatch cvplot, ms(o o) index mlabposition(1 1) sort}{p_end}
 
 
+{marker eret}{...}
 {title:Stored results}
 
 {pstd}
@@ -1893,6 +2151,7 @@
 {synopt:{cmd:r(S)}}vector of standard deviations used for standardization{p_end}
 
 
+{marker refs}{...}
 {title:References}
 
 {phang}

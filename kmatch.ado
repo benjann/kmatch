@@ -1,4 +1,4 @@
-*! version 1.1.0  08may2019  Ben Jann
+*! version 1.1.1  29may2019  Ben Jann
 
 local rc 0
 capt findfile lmoremata.mlib
@@ -410,13 +410,15 @@ program Display
                 if `"`covars'"'=="" local covars "_cons"
                 else  local covars `"`covars' _cons"'
                 local covars `"`e(ovar`i')' = `covars'"'
+                if `novars'>1 {
+                    local covars `"(`i') `covars'"'
+                }
                 if strlen(`"`covars'"')>(`linesize'-14) {
                     local covars: piece 1 `=`linesize'-18' of `"`covars'"'
                     local covars `"`covars' ..."'
                 }
                 if `i'==1 di `"`covars'"'
                 else      di _col(15) `"`covars'"'
-                if `regadj'==1 continue, break
             }
         }
         // over groups
@@ -3436,10 +3438,11 @@ program Parse_eq
         }
     }
     local novars `i'
-    local tmp
+    local tmp: list uniq ovars
+    local hasdupl = (`:list sizeof tmp' != `:list sizeof ovars')
     forv i=1/`novars' {
         local v `ovar_`i''
-        if `:list v in tmp' {
+        if `hasdupl' {
             local vname = substr(`"`i'_`v'"', 1, 32)
         }
         else local vname `v'
