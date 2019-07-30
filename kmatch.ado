@@ -1,4 +1,4 @@
-*! version 1.1.1  29may2019  Ben Jann
+*! version 1.1.2  30jul2019  Ben Jann
 
 local rc 0
 capt findfile lmoremata.mlib
@@ -6557,28 +6557,34 @@ void Kmatch_flip_V()
 void Kmatch_ebalance()
 {
     transmorphic   S
-    real scalar    balanced
+    real scalar    balanced, N1, W1
     real colvector mw, w1, w0
     real rowvector xvars
+    string scalar  wtype
 
+    wtype = st_local("weight")
     // prepare treatment group base weights
-    if (st_local("wvar")=="1") w1 = 1
+    if (wtype=="") w1 = 1
     else {
         w1 = st_data(., st_local("wvar"), st_local("ebtreat"))
-        if (st_local("weight")!="fweight") w1 = w1 * (rows(w1) / sum(w1))
+        if (wtype!="fweight") {
+            N1 = rows(w1)
+            W1 = sum(w1)
+            w1 = w1 * (N1 / W1)
+        }
     }
     // prepare control group base weights
     if (st_local("subcmd")=="eb" | st_local("csonly")!="") {
-        if (st_local("wvar")=="1") w0 = 1
+        if (wtype=="") w0 = 1
         else {
             w0 = st_data(., st_local("wvar"), st_local("ebcontrol"))
-            if (st_local("weight")!="fweight") w0 = w0 * (rows(w0) / sum(w0))
+            if (wtype!="fweight") w0 = w0 * (rows(w0) / sum(w0))
         }
     }
     else {
         w0 = st_data(., st_local("mw"), st_local("ebcontrol"))
         w0 = w0 * (rows(w0) / sum(w0))
-        if (st_local("weight")=="fweight") {
+        if (wtype=="fweight") {
             w0 = w0 * st_data(., st_local("wvar"), st_local("ebcontrol"))
         }
     }
@@ -6603,8 +6609,20 @@ void Kmatch_ebalance()
     if (st_local("eb_vtolerance")!="") mm_ebal_vtol(S, strtoreal(st_local("eb_vtolerance")))
     balanced = mm_ebal(S)
     mw = mm_ebal_W(S)
-    // for fweights: remove base weights
-    if (st_local("weight")=="fweight") mw = mw :/ w0
+    // rescale balancing weights weights
+    if (wtype!="") {
+        if (wtype=="fweight") {
+            // remove the base weights (cannot use w0 because w0 may also 
+            // contain pre-processing weights)
+            mw = mw :/ st_data(., st_local("wvar"), st_local("ebcontrol"))
+        }
+        else {
+            // rescale balancing weights such that their sum is equal to sum of
+            // the base weights in treatment group (i.e. not to the number of 
+            // observations)
+            mw = mw * (W1 / N1)
+        }
+    }
     // return results
     st_numscalar(st_local("balanced"), balanced)
     st_numscalar(st_local("maxdif"), mm_ebal_v(S))
