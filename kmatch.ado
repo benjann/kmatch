@@ -1,4 +1,4 @@
-*! version 1.1.2  30jul2019  Ben Jann
+*! version 1.1.3  11mar2020  Ben Jann
 
 local rc 0
 capt findfile lmoremata.mlib
@@ -13,22 +13,22 @@ if _rc {
 }
 if `rc' error 499
 
-program kmatch, eclass
+program kmatch, eclass prop(svyb svyj)
     version 11
     if replay() {
         Display `0'
         exit
     }
     gettoken subcmd: 0, parse(", ")
-    if `"`subcmd'"'== substr("summarize",1,max(2,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("summarize",1,max(2,strlen(`"`subcmd'"'))) {
         Postest summarize `0'
         exit
     }
-    if `"`subcmd'"'== substr("density",1,max(4,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("density",1,max(4,strlen(`"`subcmd'"'))) {
         Postest density `0'
         exit
     }
-    if `"`subcmd'"'== substr("cumul",1,max(3,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("cumul",1,max(3,strlen(`"`subcmd'"'))) {
         Postest cumul `0'
         exit
     }
@@ -36,15 +36,15 @@ program kmatch, eclass
         Postest box `0'
         exit
     }
-    if `"`subcmd'"'== substr("csummarize",1,max(3,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("csummarize",1,max(3,strlen(`"`subcmd'"'))) {
         Postest csummarize `0'
         exit
     }
-    if `"`subcmd'"'== substr("cdensity",1,max(5,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("cdensity",1,max(5,strlen(`"`subcmd'"'))) {
         Postest cdensity `0'
         exit
     }
-    if `"`subcmd'"'== substr("ccumul",1,max(4,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("ccumul",1,max(4,strlen(`"`subcmd'"'))) {
         Postest ccumul `0'
         exit
     }
@@ -52,48 +52,60 @@ program kmatch, eclass
         Postest cbox `0'
         exit
     }
-    if `"`subcmd'"'== substr("cvplot",1,max(2,strlen(`"`subcmd'"'))) {
+    if `"`subcmd'"'==substr("cvplot",1,max(2,strlen(`"`subcmd'"'))) {
         Postest_cvplot `0'
         exit
     }
+    if `"`subcmd'"'=="predict" {
+        gettoken subcmd 0 : 0, parse(", ")
+        kmatch_p `0'
+        exit
+    }
     local version : di "version " string(_caller()) ":"
-    Parse_vceprefix `0'
-    if `vceprefix' {
+    Parse_svy_or_vceprefix `0' // return svy_or_vceprefix
+    if `svy_or_vceprefix'>1 {
         `version' VCE_Estimate `0' // returns diopts
+    }
+    else if `svy_or_vceprefix' {
+        `version' SVY_Estimate `0' // returns diopts
     }
     else {
         Estimate `0' // returns diopts
     }
     ereturn local cmdline `"kmatch `0'"'
     Display, `diopts'
-    if `"`e(generate)'`e(wgenerate)'`e(dygenerate)'`e(cemgenerate)'`e(ifgenerate)'`e(idgenerate)'`e(dxgenerate)'"'!="" {
+    local generate `e(generate)' `e(wgenerate)' `e(dygenerate)' ///
+        `e(cemgenerate)' `e(ifgenerate)' `e(idgenerate)' `e(dxgenerate)'
+    if `:list sizeof generate' {
         tempname rcurrent
         _return hold `rcurrent'
         di as txt _n "Stored variables" _c
-        describe `e(generate)' `e(wgenerate)' `e(dygenerate)' `e(cemgenerate)' `e(ifgenerate)' ///
-            `e(idgenerate)' `e(dxgenerate)', fullnames
+        describe `generate', fullnames
         _return restore `rcurrent'
     }
 end
 
-program Parse_vceprefix
+program Parse_svy_or_vceprefix
     _parse comma lhs 0 : 0
-    syntax [, vce(str) * ]
-    if `"`vce'"'=="" {
-         c_local vceprefix 0
-         exit
-    }
-    if strpos(`"`lhs'"',"(")==0 & `"`vce'"'!="" {
-        di as err "outcome variable required if option vce() is specified"
-        exit 198
-    }
-    gettoken vcetype : vce, parse(", ")
-    if `"`vcetype'"'=="analytic" | ///
-        `"`vcetype'"'== substr("cluster",1,max(2,strlen(`"`vcetype'"'))) {
-        c_local vceprefix 0
+    syntax [, svy vce(str) * ]
+    if `"`svy'"'!="" {
+        if `"`vce'"'!="" {
+            di as err "svy and vce() not both allowed"
+            exit 198
+        }
+        c_local svy_or_vceprefix 1
         exit
     }
-    c_local vceprefix 1
+    _parse comma vce rest : vce
+    if `"`vce'"'== substr("bootstrap",1,max(4,strlen(`"`vce'"'))) {
+        c_local svy_or_vceprefix 2
+        exit
+    }
+    if `"`vce'"'== substr("jackknife",1,max(4,strlen(`"`vce'"'))) {
+        c_local svy_or_vceprefix 3
+        exit
+    }
+    c_local svy_or_vceprefix 0
 end
 
 program VCE_Estimate, eclass
@@ -101,11 +113,8 @@ program VCE_Estimate, eclass
     gettoken subcmd 0: 0, parse(", ")
     syntax anything(equalok) [if] [in] [pw iw fw] [, vce(str) nose ///
         nn NN2(passthru) BWidth(str) CALiper(str) BWADJust(passthru) ///
-        GENerate GENerate2(passthru) DYgenerate DYgenerate2(passthru) ///
-        WGENerate WGENerate2(passthru) CEMGENerate CEMGENerate2(passthru) ///
-        IDGENerate IDGENerate2(passthru) DXGENerate DXGENerate2(passthru) ///
-        replace noHEader noTABle noMTABle Level(passthru) * ]
-    if "`se'"!="" & `"`vce'"'!="" {
+        noHEader noTABle noMTABle Level(passthru) * ]
+    if "`se'"!="" {
         di as err "nose and vce() not both allowed"
         exit 198
     }
@@ -117,116 +126,91 @@ program VCE_Estimate, eclass
         local bwidth `"`caliper'"'
         local caliper
     }
-    local options `nn' `nn2' `level' `options' 
+    local options `nn' `nn2' `level' `options'
     _get_diopts diopts options, `options'
     c_local diopts `header' `table' `mtable' `diopts'
-    local genopts `generate' `generate2' `wgenerate' `wgenerate2' /*
-        */ `dygenerate' `dygenerate2' `cemgenerate' `cemgenerate2' /*
-        */ `idgenerate' `idgenerate2' `dxgenerate' `dxgenerate2' `replace'
     if "`weight'"!="" local wgt [`weight'`exp']
-    Parse_vceopt `vce' // returns vcecmd, vcevars, vceopts
-
-    // compute bandwidth and generate variables, if needed
-    if `"`subcmd'"'=="md" | `"`subcmd'"'=="ps" {
-        capt numlist `"`bwidth'"', min(1)
-        local getbw = _rc
-        if `"`nn'`nn2'"'!="" local getbw = 0
+    Parse_vceprefix `vce' // returns vcecmd, vcevars, vceopts
+    Parse_eq `subcmd' `anything' // returns tvar, xvars, ematch, novars, ovars, ovar_#, ovarnm_#, xvars_#
+    if `novars'==0 {
+        di as err "vce(`vcecmd') requires that at least one outcome variable is specified"
+        exit 198
     }
-    else local getbw 0
+    Parse_generate_notallowed, errornote("vce(`vcecmd')") `options'
+    
+    // compute bandwidth, if needed
+    local getbw 0
+    if `"`subcmd'"'=="md" | `"`subcmd'"'=="ps" {
+        if `"`nn'`nn2'"'=="" {
+            capt numlist `"`bwidth'"', min(1)
+            local getbw = _rc
+        }
+    }
     if `"`bwidth'"'!="" local bwidth bwidth(`bwidth') 
     local bwidth `bwidth' `bwadjust'
-    local hasgen = `"`genopts'"'!=""
-    if `getbw' | `hasgen' {
-        Parse_eq `subcmd' `anything' // returns tvar, xvars, ematch, novars, ovars, ovar_#, ovarnm_#, xvars_#, opts_#
-        if "`subcmd'"=="em" {
-            if `"`xvars'"'!="" {
-                confirm numeric variable `xvars'
-            }
-        }
+    if `getbw' {
         marksample touse
         markout `touse' `vcevars'
         forv i=1/`novars' {
             markout `touse' `ovar_`i'' `xvars_`i''
         }
-        local cmdline `subcmd' `tvar' `xvars'`ematch' if `touse' `wgt', nose /*
-            */`bwidth' `genopts' `options'
+        local cmdline `subcmd' `tvar' `xvars' if `touse' `wgt', nose /*
+            */`bwidth' `options'
         //di `"`cmdline'"'
         Estimate `cmdline'
-        local e_generate    `"`e(generate)'"'
-        local e_wgenerate   `"`e(wgenerate)'"'
-        local e_dxgenerate  `"`e(dxgenerate)'"'
-        local e_idgenerate  `"`e(idgenerate)'"'
-        local e_dygenerate  `"`e(dygenerate)'"'
-        local e_cemgenerate `"`e(cemgenerate)'"'
-        if `getbw' {
-            display ""
-            local e_bw_method `"`e(bw_method)'"'
-            if `"`e(pm_quantile)'"'!="" {
-                tempname e_pm_quantile
-                scalar `e_pm_quantile' = e(pm_quantile)
-            }
-            if `"`e(pm_factor)'"'!="" {
-                tempname e_pm_factor
-                scalar `e_pm_factor' = e(pm_factor)
-            }
-            if `"`e(cv_factor)'"'!="" {
-                tempname e_cv_factor
-                scalar `e_cv_factor' = e(cv_factor)
-            }
-            local e_cv_weighted  `"`e(cv_weighted)'"'
-            local e_cv_nopenalty `"`e(cv_nopenalty)'"'
-            local e_cv_nolimit   `"`e(cv_nolimit)'"'
-            local e_cv_outcome   `"`e(cv_outcome)'"'
-            local e_cv_exact     `"`e(cv_exact)'"'
-            capt confirm matrix e(cv)
-            if _rc==0 {
-                tempname e_cv
-                matrix `e_cv' = e(cv)
-            }
-            capt confirm matrix e(cv_treated)
-            if _rc==0 {
-                tempname e_cv_treated
-                matrix `e_cv_treated' = e(cv_treated)
-            }
-            capt confirm matrix e(cv_untreated)
-            if _rc==0 {
-                tempname e_cv_untreated
-                matrix `e_cv_untreated' = e(cv_untreated)
-            }
-            tempname BW
-            mat `BW' = e(bwidth)
-            local bwidth
-            local c = colsof(`BW')
-            forv i = 1/`=rowsof(`BW')' {
-                forv j = 1/`c' {
-                    local bw = `BW'[`i',`j']
-                    local bwidth `bwidth' `bw'
-                }
-            }
-            local bwidth bwidth(`bwidth')
+        display ""
+        local e_bw_method `"`e(bw_method)'"'
+        if `"`e(pm_quantile)'"'!="" {
+            tempname e_pm_quantile
+            scalar `e_pm_quantile' = e(pm_quantile)
         }
+        if `"`e(pm_factor)'"'!="" {
+            tempname e_pm_factor
+            scalar `e_pm_factor' = e(pm_factor)
+        }
+        if `"`e(cv_factor)'"'!="" {
+            tempname e_cv_factor
+            scalar `e_cv_factor' = e(cv_factor)
+        }
+        local e_cv_weighted  `"`e(cv_weighted)'"'
+        local e_cv_nopenalty `"`e(cv_nopenalty)'"'
+        local e_cv_nolimit   `"`e(cv_nolimit)'"'
+        local e_cv_outcome   `"`e(cv_outcome)'"'
+        local e_cv_exact     `"`e(cv_exact)'"'
+        capt confirm matrix e(cv)
+        if _rc==0 {
+            tempname e_cv
+            matrix `e_cv' = e(cv)
+        }
+        capt confirm matrix e(cv_treated)
+        if _rc==0 {
+            tempname e_cv_treated
+            matrix `e_cv_treated' = e(cv_treated)
+        }
+        capt confirm matrix e(cv_untreated)
+        if _rc==0 {
+            tempname e_cv_untreated
+            matrix `e_cv_untreated' = e(cv_untreated)
+        }
+        tempname BW
+        mat `BW' = e(bwidth)
+        local bwidth
+        local c = colsof(`BW')
+        forv i = 1/`=rowsof(`BW')' {
+            forv j = 1/`c' {
+                local bw = `BW'[`i',`j']
+                local bwidth `bwidth' `bw'
+            }
+        }
+        local bwidth bwidth(`bwidth')
     }
     
     // run vcecmd
     local cmdline kmatch `subcmd' `anything' `if' `in' `wgt', nose noheader/*
         */ notable nomtable `bwidth' `options'
     //di `"`cmdline'"'
-    capt noisily `version' `vcecmd', noheader notable reject(e(k_omit)) ///
-        `vceopts' `level': `cmdline'
-    if _rc {
-        if `hasgen' {
-            drop `e_generate' `e_wgenerate' `e_dxgenerate' `e_idgenerate' `e_dygenerate' `e_cemgenerate'
-        }
-        exit _rc
-    }
-    if `hasgen' {
-        eret local generate    `"`e_generate'"'
-        eret local wgenerate   `"`e_wgenerate'"'
-        eret local dxgenerate  `"`e_dxgenerate'"'
-        eret local idgenerate  `"`e_idgenerate'"'
-        eret local dygenerate  `"`e_dygenerate'"'
-        eret local cemgenerate `"`e_cemgenerate'"'
-    }
+    `version' `vcecmd', noheader notable reject(e(k_omit)) `vceopts' `level': ///
+        `cmdline'
     if `getbw' {
         eret local bw_method `"`e_bw_method'"'
         if "`e_pm_quantile'"!="" {
@@ -255,7 +239,7 @@ program VCE_Estimate, eclass
     }
 end
 
-program Parse_vceopt
+program Parse_vceprefix
     _parse comma vcecmd 0 : 0
     if `"`vcecmd'"'== substr("bootstrap",1,max(4,strlen(`"`vcecmd'"'))) {
         c_local vcecmd bootstrap
@@ -279,6 +263,97 @@ end
 program Parse_vceopt_jack
     syntax [, CLuster(varlist) * ]
     c_local vcevars `cluster'
+end
+
+program Parse_generate_notallowed
+    syntax [, errornote(str) ///
+    GENerate GENerate2(passthru) DYgenerate DYgenerate2(passthru) ///
+    WGENerate WGENerate2(passthru) CEMGENerate CEMGENerate2(passthru) ///
+    IDGENerate IDGENerate2(passthru) DXGENerate DXGENerate2(passthru) ///
+    IFGENerate IFGENerate2(passthru) * ]
+    foreach gen in "" "dy" "w" "cem" "id" "dx" "if" {
+        if `"``gen'generate'``gen'generate2'"'!="" {
+            di as err `"`gen'generate() not allowed with `errornote'"'
+            exit 198
+        }
+    }
+end
+
+program SVY_Estimate, eclass
+    // syntax
+    local version : di "version " string(_caller()) ":"
+    syntax anything(equalok) [if] [in] [pw iw fw] [, ///
+        nose svy SUBpop(passthru) ///
+        IFGENerate IFGENerate2(passthru) ///
+        ate att atc nate po ///
+        noHEader noTABle noMTABle Level(passthru) * ]
+    if "`se'"!="" {
+        di as err "nose and svy not both allowed"
+        exit 198
+    }
+    if "`weight'"!="" {
+        di as err "weights not allowed with svy; supply weights to {help svyset}"
+        exit 101
+    }
+    local options `level' `options'
+    _get_diopts diopts options, `options'
+    c_local diopts `header' `table' `mtable' `diopts'
+    Parse_eq `anything' // returns tvar, xvars, ematch, novars, ovars, ovar_#, ovarnm_#, xvars_#
+    if `novars'==0 {
+        di as err "svy requires that at least one outcome variable is specified"
+        exit 198
+    }
+    qui svyset
+    if `"`r(settings)'"'==", clear" {
+         di as err "data not set up for svy, use {helpb svyset}"
+         exit 119
+    }
+    local vcetype `"`r(vce)'"'
+    local notable notable
+    if c(stata_version)<12 local notable // (this is unfortunate ...)
+    
+    // run svy: kmatch ...
+    if `"`vcetype'"'!="linearized" {
+        Parse_generate_notallowed, errornote("svy's vce(`vcetype')") ///
+            `ifgenerate' `ifgenerate2' `options'
+        local cmdline kmatch `anything' `if' `in', nose /*
+            */ `ate' `att' `atc' `nate' `po' `options'
+        //di `"`cmdline'"'
+        `version' svy `vcetype', `subpop' `level' noheader `notable': `cmdline' 
+    }
+    else {
+        // compile option to generate IFs
+        local userifgen = (`"`ifgenerate'`ifgenerate2'"'!="")
+        if `userifgen'==0 {
+            local k = ("`ate'"!="" | "`att'`atc'"=="")
+            local k = `k' + ("`att'"!="")
+            local k = `k' + ("`atc'"!="")
+            local k = `k' + ("`nate'"!="")
+            local k = `k' * `novars'
+            if "`po'"!="" local k = `k' * 3
+            forv i = 1/`k' {
+                tempname IF
+                local IFs `IFs' `IF'
+            }
+            local ifgenerate2 ifgenerate(`IFs')
+        }
+        // run svy linearized: kmatch
+        local cmdline kmatch_svyr `anything' `if' `in', nose /*
+            */ `ifgenerate' `ifgenerate2' /*
+            */ `ate' `att' `atc' `nate' `po' `options'
+        //di `"`cmdline'"'
+        `version' svy linearized, `subpop' `level' noheader `notable': `cmdline' 
+        // relabel results
+        tempname b
+        mat `b' = e(b)
+        mata: Kmatch_svylbl_b_undo()    // returns k_eq
+        ereturn repost b=`b', rename
+        eret scalar k_eq = `k_eq'
+        if `userifgen'==0 {
+            eret local ifgenerate ""
+        }
+        eret local predict ""
+    }
 end
 
 program Display
@@ -352,10 +427,7 @@ program Display
                     local covars: piece 1 `=`linesize'-18' of `"`covars'"'
                     local covars `"`covars' ..."'
                 }
-                di as txt "Exact " _c
-                if `"`e(cem1)'"'!="" di "[cem] : " _c
-                else                 di "      : " _c
-                di `"`covars'"'
+                di as txt "Exact       : " `"`covars'"'
             }
         }
         if `"`e(pscore)'"'!="" {
@@ -558,7 +630,26 @@ program Refit_with_generate
     if `"`e(wtype)'"'!="" {
         local cmd `cmd' [`e(wtype)' `e(wexp)']
     }
-    local cmd `cmd' if e(sample), `generate'
+    if `"`e(subpop)'"'!="" {
+        tempvar touse
+        qui gen byte `touse' = 0
+        Refit_with_generate_subpop `e(subpop)'
+        if `"`subif'`subin'"'!="" {
+            qui replace `touse' = 1 `subif' `subin'
+            qui replace `touse' = 0 if e(sample)==0 | e(sample)>=.
+        }
+        else {
+            qui replace `touse' = 1 if e(sample) & e(sample)<.
+        }
+        if "`subvar'"!="" {
+            qui replace `touse' = 0 if `subvar'==0 | `subvar'>=.
+        }
+        local cmd `cmd' if `touse'
+    }
+    else {
+        local cmd `cmd' if e(sample)
+    }
+    local cmd `cmd', `generate'
     if `"`e(ematch)'"'!="" & `"`subcmd'"'!="em" {
         local cmd `cmd' ematch(`e(ematch)')
     }
@@ -663,6 +754,13 @@ program Refit_with_generate
     quietly Estimate `cmd'
 end
 
+program Refit_with_generate_subpop
+        syntax [varname(default=none numeric)] [if] [in]
+        c_local subvar `varlist'
+        c_local subif `"`if'"'
+        c_local subin `"`in'"'
+end
+
 program Postest_summarize, rclass
     syntax [ varlist(default=none fv numeric) ] [ , ate att atc ///
         sd meanonly varonly SKewness skewonly ]
@@ -686,7 +784,7 @@ program Postest_summarize, rclass
     if "`varlist'"=="" {
         local varlist "`e(xvars)'"
     }
-    fvexpand `varlist' if e(sample)
+    fvexpand `varlist' if `treat'<.
     local xvars
     foreach v in `r(varlist)' {
         if strpos(`"`v'"', "b.") continue // remove base levels
@@ -709,7 +807,7 @@ program Postest_summarize, rclass
 
     // sample, variables, weights
     tempname touse
-    qui gen byte `touse' = (e(sample)==1)
+    qui gen byte `touse' = (`treat'<.)
     local wtype "`e(wtype)'"
     if "`wtype'"!="" {
         tempvar wvar
@@ -948,7 +1046,7 @@ program Postest_csummarize, rclass
     if "`varlist'"=="" {
         local varlist "`e(xvars)'"
     }
-    fvexpand `varlist' if e(sample)
+    fvexpand `varlist' if `treat'<.
     local xvars
     foreach v in `r(varlist)' {
         if strpos(`"`v'"', "b.") continue // remove base levels
@@ -963,7 +1061,7 @@ program Postest_csummarize, rclass
 
     // sample, variables, weights
     tempname touse
-    qui gen byte `touse' = (e(sample)==1)
+    qui gen byte `touse' = (`treat'<.)
     local wtype "`e(wtype)'"
     if "`wtype'"!="" {
         tempvar wvar
@@ -1230,7 +1328,7 @@ program Postest_density
     if `"`vnm4note'"'=="" local vnm4note `"`varlist'"'
     
     // sample, variables, weights
-    qui keep if e(sample)==1
+    qui keep if `treat'<.
     if `"`overlevel'"'!="" {
         qui keep if `e(over)'==`overlevel'
         if `"`title'"'=="" local title title("`e(over)' = `overlevel'")
@@ -1458,7 +1556,7 @@ program Postest_cdensity
     if `"`vnm4note'"'=="" local vnm4note `"`varlist'"'
     
     // sample, variables, weights
-    qui keep if e(sample)==1
+    qui keep if `treat'<.
     if `"`overlevel'"'!="" {
         qui keep if `e(over)'==`overlevel'
         if `"`title'"'=="" local title title("`e(over)' = `overlevel'")
@@ -1612,7 +1710,7 @@ program Postest_cumul
     if `"`vnm4note'"'=="" local vnm4note `"`varlist'"'
     
     // sample, variables, weights
-    qui keep if e(sample)==1
+    qui keep if `treat'<.
     if `"`overlevel'"'!="" {
         qui keep if `e(over)'==`overlevel'
         if `"`title'"'=="" local title title("`e(over)' = `overlevel'")
@@ -1695,7 +1793,7 @@ program Postest_ccumul
     if `"`vnm4note'"'=="" local vnm4note `"`varlist'"'
     
     // sample, variables, weights
-    qui keep if e(sample)==1
+    qui keep if `treat'<.
     if `"`overlevel'"'!="" {
         qui keep if `e(over)'==`overlevel'
         if `"`title'"'=="" local title title("`e(over)' = `overlevel'")
@@ -1774,7 +1872,7 @@ program Postest_box
     if `"`vnm4note'"'=="" local vnm4note `"`varlist'"'
 
     // sample, variables, weights
-    qui keep if e(sample)==1
+    qui keep if `treat'<.
     if `"`overlevel'"'!="" {
         qui keep if `e(over)'==`overlevel'
         if `"`title'"'=="" local title title("`e(over)' = `overlevel'")
@@ -1854,7 +1952,7 @@ program Postest_cbox
     if `"`vnm4note'"'=="" local vnm4note `"`varlist'"'
 
     // sample, variables, weights
-    qui keep if e(sample)==1
+    qui keep if `treat'<.
     if `"`overlevel'"'!="" {
         qui keep if `e(over)'==`overlevel'
         if `"`title'"'=="" local title title("`e(over)' = `overlevel'")
@@ -2123,7 +2221,7 @@ program Estimate, eclass sortpreserve
     }
     
     // syntax
-    syntax anything(equalok id="tvar") [if] [in] [pw iw fw] [,                ///
+    syntax anything(equalok id="tvar") [if] [in] [pw iw fw/] [,               ///
         over(varname numeric) TVALue(int 1) ate att atc nate po `options'     ///
         GENerate GENerate2(str) DYgenerate DYgenerate2(str)                   ///
         WGENerate WGENerate2(str) replace                                     ///
@@ -2143,7 +2241,7 @@ program Estimate, eclass sortpreserve
         local keepall
     }
     if "`comsup2'"!="" local comsup comsup
-    if "`se'"!="" & `"`vce'"'!="" {
+    if `"`vce'"'!="" & "`se'"!="" {
         di as err "nose and vce() not both allowed"
         exit 198
     }
@@ -2194,7 +2292,7 @@ program Estimate, eclass sortpreserve
     c_local diopts `header' `table' `mtable' `diopts'
     
     // parse equations
-    Parse_eq `subcmd' `anything' // returns tvar, xvars, ematch, novars, ovars, ovar_#, ovarnm_#, xvars_#, opts_#
+    Parse_eq `subcmd' `anything' // returns tvar, xvars, ematch, novars, ovars, ovar_#, ovarnm_#, xvars_#
     if "`subcmd'"=="ra" {
         if `"`xvars'"'!="" {
             di as err "{it:xvars} not allowed with {bf:kmatch ra}"
@@ -2226,7 +2324,13 @@ program Estimate, eclass sortpreserve
         }
     }
     else local ps
-    if `novars'==0 local se "nose"
+    if `novars'==0 {
+        local se "nose"
+        local dygenerate
+        local dygenerate2
+        local ifgenerate
+        local ifgenerate2
+    }
     
     // generate(): construct names check whether variables already exist
     if "`subcmd'"=="md" | "`subcmd'"=="ps" | "`subcmd'"=="em" {
@@ -2293,12 +2397,12 @@ program Estimate, eclass sortpreserve
     }
 
     // ifgenerate(): generate names and check whether variables already exist
-    if "`se'"=="" {
-        Parse_generate_prefix ifgenerate "`ifgenerate'" `"`ifgenerate2'"' _IF_
-        local IFVARS
-        local IFLBLs
-        local IFs
-        local oIFs
+    Parse_generate_prefix ifgenerate "`ifgenerate'" `"`ifgenerate2'"' _IF_
+    local IFVARS
+    local IFLBLs
+    local IFs
+    local oIFs
+    if "`ifgenerate'"!="" | "`se'"=="" {
         local i 0
         forv j=1/`novars' {
             local oIF
@@ -2406,7 +2510,6 @@ program Estimate, eclass sortpreserve
     }
     forv i=1/`novars' {
         markout `touse' `ovar_`i'' `xvars_`i''
-        // can there be variables in opts_# that might need to be taken into account?
     }
     qui count if `touse'
     if (r(N)==0) error 2000
@@ -2416,8 +2519,13 @@ program Estimate, eclass sortpreserve
 
     // weights
     if "`weight'"!="" {
-        tempvar wvar
-        qui gen double `wvar' `exp' if `touse'
+        capt confirm variable `exp'
+        if _rc {
+            tempvar wvar
+            qui gen double `wvar' = `exp'
+        }
+        else local wvar `exp'
+        local exp `"= `exp'"'
         local wexp `"[`weight' = `wvar']"'
         local swexp `"`wexp'"'
         if "`weight'"=="pweight" | "`weight'"=="iweight" {
@@ -2751,8 +2859,8 @@ program Estimate, eclass sortpreserve
         }
         sort `sortvars' `cv_outcome' `_sortindex'
         tempvar byindex
-        by `touse' `over' `emtvars': gen byte `byindex' = _n==1
-        qui by `touse' `over': replace `byindex' = sum(`byindex')
+        qui by `touse' `over' `emtvars': gen byte `byindex' = _n==1 if `touse'
+        qui by `touse' `over': replace `byindex' = sum(`byindex') if `touse'
         if "`subcmd'"=="em" {
             mata: Kmatch("`subcmd'")
         }
@@ -2933,16 +3041,14 @@ program Estimate, eclass sortpreserve
     // treatment effects
     if `novars' {
         tempname b b0
-        if "`se'"=="" {
-            tempname V
-            foreach IF of local IFs {
-                qui gen double `IF' = 0 if `touse'
-            }
+        if "`se'"=="" tempname V
+        foreach IF of local IFs {
+            qui gen double `IF' = 0 if `touse'
         }
     }
     forv i=1/`nover' {
         local l: word `i' of `overlevels'
-        if "`se'"=="" local tmp `"`oIFs'"'
+        local tmp `"`oIFs'"'
         if "`subcmd'"=="eb" | "`ebalance'"!="" {
             local attnotok
             local atcnotok
@@ -2955,11 +3061,11 @@ program Estimate, eclass sortpreserve
             }
         }
         forv j=1/`novars' {
-            if "`se'"=="" gettoken oIF tmp : tmp
+            gettoken oIF tmp : tmp
             Estimate_teffect "`ate'" "`att'" "`atc'" "`nate'" "`po'" ///
                 `touse' `treat' `control' `nc' `nm' `mw' `novars' `ovar_`j'' ///
                 `ovarnm_`j'' "`dy_`j''" "`xvars_`j''" `"`swexp'"' "`weight'" ///
-                "`wvar'" "`over'" "`l'" "`noisily'" "`se'" "`oIF'" ///
+                "`wvar'" "`over'" "`l'" "`noisily'" "`oIF'" ///
                 "`attnotok'" "`atcnotok'" "`ebalance'" "`dynotset'"
             mat `b' = nullmat(`b'), r(b)
         }
@@ -2968,7 +3074,8 @@ program Estimate, eclass sortpreserve
     if `novars' {
         mata: st_local("k_omit", strofreal(Kmatch_FlagOmitted("`b'")))
         if "`se'"=="" {
-            qui mean `IFs' `wexp' if `touse', `overopt' `vce'
+            qui total `IFs' `wexp' if `touse', `overopt' `vce'
+            //qui mean `IFs' `wexp' if `touse', `overopt' `vce'
             mat `V' = e(V)
             local df_r = e(df_r)
             if "`vcetype'"=="cluster" {
@@ -2991,7 +3098,7 @@ program Estimate, eclass sortpreserve
             qui replace `dy_`j'' = `ovar_`j'' - `dy_`j''  if `touse' & `treat'
         }
     }
-
+    
     // post results
     if `novars' {
         if "`se'"=="" {
@@ -3016,7 +3123,7 @@ program Estimate, eclass sortpreserve
     }
     else if "`subcmd'"=="em" {
         if `"`cem_1'"'=="" eret local title "Exact matching"
-        else               eret local title "Exact matching [coarsened]" 
+        else               eret local title "Coarsened exact matching" 
         local xvars `emxvars' // will be used by kmatch sum/csum
     }
     else {
@@ -3295,18 +3402,17 @@ program Estimate, eclass sortpreserve
     }
     eret local cemgenerate "`CEMVARS'"
     // - ifgenerate()
-    if "`se'"=="" {
-        foreach vname of local IFVARS {
-            gettoken IF IFs : IFs
-            gettoken IFLBL IFLBLs : IFLBLs
-            capt confirm new variable `vname'
-            if _rc==1 exit _rc
-            if _rc drop `vname'
-            rename `IF' `vname'
-            lab var `vname' "`IFLBL'"
-        }
-        eret local ifgenerate "`IFVARS'"
+    foreach vname of local IFVARS {
+        gettoken IF IFs : IFs
+        gettoken IFLBL IFLBLs : IFLBLs
+        capt confirm new variable `vname'
+        if _rc==1 exit _rc
+        if _rc drop `vname'
+        rename `IF' `vname'
+        lab var `vname' "`IFLBL'"
     }
+    eret local ifgenerate "`IFVARS'"
+    
     Return_clear 
 end
 program Return_clear, rclass
@@ -3382,11 +3488,24 @@ program Parse_eq
     }
     // xvars
     else {
-        gettoken 0 rest : rest, parse("(")
-        if `"`0'"'=="(" {
-            local rest `"(`rest'"'
-            local 0
+        local xvars
+        while (`"`rest'"'!="") {
+            gettoken 0 rest : rest, match(par) bind
+            if `"`par'"'=="(" {
+                // check whether '0' is an outcome equation "(...)"
+                // => true if 'rest' is empty, starts with a blank, or with "("
+                if inlist(strtrim(substr(`"`rest'"',1,1)),"","(") {
+                    local rest `"(`0')`rest'"'
+                    continue, break
+                }
+                // else: get next token without matching parentheses such that,
+                // e.g., "(x y)#z" is read as a single token
+                local rest `"(`0')`rest'"'
+                gettoken 0 rest : rest, bind
+            }
+            local xvars `"`xvars' `0'"'
         }
+        local 0 `"`xvars'"'
         capt n syntax [varlist(numeric fv default=none)]
         if _rc==1 exit _rc
         if _rc {
@@ -3404,7 +3523,6 @@ program Parse_eq
             di as err "invalid outcome equation specification"
             exit 198
         }
-        _parse comma eq opts: eq
         gettoken 0 eq : eq, parse("=")
         gettoken eqsign xvars : eq, parse("=")
         if `"`eqsign'"'!="" {
@@ -3434,7 +3552,6 @@ program Parse_eq
             local ovars `ovars' `v'
             local ovar_`i' `v'
             local xvars_`i' `xvars'
-            local opts_`i' `opts'
         }
     }
     local novars `i'
@@ -3449,7 +3566,6 @@ program Parse_eq
         c_local ovar_`i' `v'
         c_local ovarnm_`i' `vname'
         c_local xvars_`i' `xvars_`i''
-        c_local opts_`i' `opts_`i''
         local tmp `tmp' `v'
     }
     c_local novars `novars'
@@ -3973,8 +4089,9 @@ end
 
 program Estimate_teffect, rclass
     args ate att atc nate po touse0 treat control nc nm mw novars ovar ///
-        ovarnm dyvar xvars swexp wtype wvar over l noi se IFs attnotok atcnotok ///
+        ovarnm dyvar xvars swexp wtype wvar over l noi IFs attnotok atcnotok ///
         ebalance dynotset
+    local se: list sizeof IFs
     if "`over'"!="" {
         tempvar touse
         qui gen byte `touse' = `touse0' & (`over'==`l')
@@ -3998,7 +4115,7 @@ program Estimate_teffect, rclass
     else if `novars'>1 mat coleq `b0' = `ovarnm'
     // regression adjustment
     tempname Y1 Y0 R 
-    if "`se'"=="" {
+    if `se' {
         tempname B1 B0 Q1 Q0
         if "`xvars'"!="" {  // make sure all terms are included in regressions
             fvexpand `xvars'
@@ -4018,7 +4135,7 @@ program Estimate_teffect, rclass
             else          qui `noi' di ""
             qui `noi' regress `ovar' `xvars' [iw=`mw'] ///
                 if `touse' & `treat' & `nm', noheader
-            if "`se'"=="" {
+            if `se' {
                 matrix `B1' = e(b)
                 sum `mw' if e(sample), meanonly // because e(N) is rounded
                 capt matrix `Q1' = e(V) / e(rmse)^2 * r(sum)
@@ -4055,7 +4172,7 @@ program Estimate_teffect, rclass
             else          qui `noi' di ""
             qui `noi' regress `ovar' `xvars' [iw=`mw'] ///
                 if `touse' & `control' & `nm', noheader
-            if "`se'"=="" {
+            if `se' {
                 matrix `B0' = e(b)
                 sum `mw' if e(sample), meanonly // because e(N) is rounded
                 capt matrix `Q0' = e(V) / e(rmse)^2 * r(sum)
@@ -4080,7 +4197,7 @@ program Estimate_teffect, rclass
         qui generate double `Y0' = `ovar' if `touse' & `control' & `nc' & `nc'<.
     }
     // basic influence functions
-    if "`se'"=="" {
+    if `se' {
         if "`ate'"!="" {
             gettoken ATE IFs : IFs
             if `po' {
@@ -6417,6 +6534,7 @@ void Kmatch_IF()    // compute influence functions
         ybar0 = mean(select(Y,C), select(wgt,C))
         E1 = T*(W/sum(wgt:*T)) :* (Y :- ybar1)
         E0 = C*(W/sum(wgt:*C)) :* (Y :- ybar0)
+        E1 = E1 / W; E0 = E0 / W    // rescale for use with -total-
         if (hasmissing(E1)) E1 = J(0,1,.)
         if (hasmissing(E0)) E0 = J(0,1,.)
         if (Kmatch_iscons(E1)==0 & Kmatch_iscons(E0)==0) {
@@ -6485,6 +6603,7 @@ void Kmatch_IF()    // compute influence functions
                      (W/N)  * (xbar1*b0 :- ybar0) :* (T :- p))
         if (hasmissing(E1)) E1 = J(0,1,.)
         if (hasmissing(E0)) E0 = J(0,1,.)
+        E1 = E1 / W; E0 = E0 / W    // rescale for use with -total-
         if (Kmatch_iscons(E1)==0 & Kmatch_iscons(E0)==0) {
             st_store(., st_local("ATE"), touse, E1-E0)
         }
@@ -6498,6 +6617,7 @@ void Kmatch_IF()    // compute influence functions
         E0 = w :* (C*(W/W0) :* F0) + S :* (T*(W/N1) :* ((X :- xbar1)*b0))
         if (hasmissing(E1)) E1 = J(0,1,.)
         if (hasmissing(E0)) E0 = J(0,1,.)
+        E1 = E1 / W; E0 = E0 / W    // rescale for use with -total-
         if (Kmatch_iscons(E1)==0 & Kmatch_iscons(E0)==0) {
             st_store(., st_local("ATT"), touse, E1-E0)
         }
@@ -6511,6 +6631,7 @@ void Kmatch_IF()    // compute influence functions
         E0 = S :* (C*(W/N0) :* (Y :- ybar0))
         if (hasmissing(E1)) E1 = J(0,1,.)
         if (hasmissing(E0)) E0 = J(0,1,.)
+        E1 = E1 / W; E0 = E0 / W    // rescale for use with -total-
         if (Kmatch_iscons(E1)==0 & Kmatch_iscons(E0)==0) {
             st_store(., st_local("ATC"), touse, E1-E0)
         }
@@ -6552,6 +6673,19 @@ void Kmatch_flip_V()
         }
     }
     st_replacematrix(st_local("V"), st_matrix(st_local("V"))[p,p])
+}
+
+void Kmatch_svylbl_b_undo()
+{
+    real colvector pos
+    string matrix  cstripe
+    
+    cstripe = st_matrixcolstripe(st_local("b"))
+    pos = strpos(cstripe[,1], "@")
+    cstripe[,2] = substr(cstripe[,1],pos:+1,.)
+    cstripe[,1] = substr(cstripe[,1],1,pos:-1)
+    st_local("k_eq", strofreal(rows(uniqrows(cstripe[,1]))))
+    st_matrixcolstripe(st_local("b"), cstripe)
 }
 
 void Kmatch_ebalance()

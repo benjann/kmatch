@@ -1,5 +1,5 @@
 {smcl}
-{* 29may2019}{...}
+{* 11mar2020}{...}
 {hi:help kmatch}{...}
 {right:{help kmatch##syntax:Syntax} - {help kmatch##desc:Description} - {help kmatch##mdoptions:Options} - {help kmatch##ex:Examples} - {help kmatch##eret:Stored results} - {help kmatch##refs:References}}
 {hline}
@@ -358,6 +358,10 @@
 {syntab :SE/CI}
 {synopt :{cmd:vce(}{help kmatch##vce:{it:vcetype}}{cmd:)}}{it:vcetype} may
     be {cmd:analytic} (the default), {cmdab:cl:uster} {it:clustvar}, {cmdab:boot:strap}, or {cmdab:jack:knife}
+    {p_end}
+{synopt :{opt svy}}use survey variance estimation as set by {helpb svyset}
+    {p_end}
+{synopt :{opt subp:op(subpop)}}restrict survey estimation to a subpopulation
     {p_end}
 {synopt :{opt nose}}do not compute standard errors
     {p_end}
@@ -1367,7 +1371,7 @@
     whenever possible and use {cmd:vce(bootstrap)} in other cases. In my
     simulations, the bootstrap generally produced good results, with the
     exception of nearest-neighbor matching, where the bootstrap standard errors
-    tend to be conservative. For nearest-neighbor matching it has also been
+    tended to be conservative. For nearest-neighbor matching it has also been
     shown theoretically that the boostrap is not consistent (Abadie and Imbens
     2008). Official Stata's {helpb teffetcs nnmatch} and
     {helpb teffetcs psmatch} will produce consistent standard errors for nearest-neighbor
@@ -1395,11 +1399,34 @@
     When using {cmd:bootstrap} or {cmd:jackknife} via the {cmd:vce()} option,
     such estimates are excluded automatically.
 
+{pmore}
+    {cmd:vce(bootstrap)} and {cmd:vce(jackknife)} require that at least one
+    outcome variable has been specified.
+
 {phang}
-    {cmd:nose} suppresses the computation of analytic standard errors/variances
-    of the estimates. Use this option if you want to save computer time, for example,
-    in simulations. {cmd:vce(bootstrap)} and {cmd:vce(jackknife)} automatically
-    impose {cmd:nose}.
+    {cmd:svy} causes the survey design to be taken into account for variance
+    estimation, using the estimation method as set in {helpb svyset}. This option may 
+    not be specified with {cmd:vce()} or weights, and it requires that at least one 
+    outcome variable has been specified. Taylor-linearized variance estimation will 
+    be based on influence functions assuming balancing weights as fixed; see the 
+    {cmd:vce()} option.
+
+{phang}
+    {cmd:subpop(}{it:subpop}{cmd:)} restricts survey estimation to a single
+    subpopulation identified by {it:subpop}, which is
+
+            [{varname}] [{it:{help if}}]
+
+{pmore}
+    The subpopulation is defined by observations for which {it:varname}!=0 and
+    for which the {cmd:if} condition is met. See help {helpb svy} and
+    {manlink SVY subpopulation estimation} for more information on subpopulation
+    estimation. {cmd:subpop()} requires the {cmd:svy} option.
+
+{phang}
+    {cmd:nose} suppresses the computation of standard errors. Use this option 
+    if you want to save computer time, for example, in simulations. {cmd:nose} may not be 
+    specified with {cmd:vce()} or {cmd:svy}.
 
 {dlgtab:Reporting}
 
@@ -1509,7 +1536,7 @@
     {opth idvar(varname)} provides custom IDs to be used by {cmd:idgenerate()}.
     {it:varname} may be numeric or string. The default is to use the
     observation numbers as IDs (based on the sort order at the time when
-    {cmd:kmatch} is called). {cmd:idgenerate()} is only
+    {cmd:kmatch} is called). {cmd:idvar()} is only
     allowed with {cmd:kmatch md}, {cmd:kmatch ps}, and {cmd:kmatch em}.
 
 {phang}
@@ -2134,8 +2161,10 @@
 {p2colreset}{...}
 
 {pstd}
-    If {cmd:vcd()} is {cmd:bootstrap} or {cmd:jackknife}, additional results as described
-    in help {helpb bootstrap} and {helpb jackknife} are stored in {cmd:e()}.
+    If {cmd:vce()} is {cmd:bootstrap} or {cmd:jackknife}, additional results as described
+    in help {helpb bootstrap} and {helpb jackknife} are stored in {cmd:e()}. If option {cmd:svy}
+    option is specified, additional results as described
+    in help {helpb svy} are stored in {cmd:e()}.
 
 {pstd}
     {cmd:kmatch summarize}, {cmd:kmatch csummarize}, {cmd:kmatch density}, {cmd:kmatch cdensity},
