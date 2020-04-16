@@ -20,7 +20,7 @@ To install `kmatch` from the SSC Archive, type
     . ssc install kmatch, replace
 
 in Stata. Stata version 11 or newer is required. Furthermore, the the `moremata` and `kdens` 
-packaged are required. To install these packages from the SSC Archive, type
+packages are required. To install these packages from the SSC Archive, type
 
     . ssc install moremata, replace
     . ssc install kdens, replace
