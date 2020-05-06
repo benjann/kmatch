@@ -1,5 +1,5 @@
 v 3
-d kmatch
+d kmatch: module for multivariate-distance and propensity-score matching, including entropy balancing, inverse probability weighting, (coarsened) exact matching, and regression adjustment
 d 
 d Author: Ben Jann, University of Bern, ben.jann@soz.unibe.ch
 d
