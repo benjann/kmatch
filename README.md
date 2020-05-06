@@ -14,7 +14,6 @@ supported (coarsened exact matching, inverse probability weighting, entropy
 balancing). The package also includes various commands for evaluating balancing
 and common-support violations.
 
-
 To install `kmatch` from the SSC Archive, type
 
     . ssc install kmatch, replace
@@ -34,6 +33,12 @@ Installation from GitHub:
 ---
 
 Main changes:
+
+    05may2020
+    - kmatch could fail if weights were specified and the variable containing the
+      weights was abbreviated; this is fixed
+    - new (undocumented) option to suppress the list of generated variables in 
+      the output
 
     09mar2020
     - survey estimation is now supported through options -svy- and -subpop()-

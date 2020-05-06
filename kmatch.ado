@@ -1,4 +1,4 @@
-*! version 1.1.3  11mar2020  Ben Jann
+*! version 1.1.4  05may2020  Ben Jann
 
 local rc 0
 capt findfile lmoremata.mlib
@@ -70,10 +70,11 @@ program kmatch, eclass prop(svyb svyj)
         `version' SVY_Estimate `0' // returns diopts
     }
     else {
-        Estimate `0' // returns diopts
+        Estimate `0' // returns diopts, nogenlist
     }
     ereturn local cmdline `"kmatch `0'"'
     Display, `diopts'
+    if "`nogenlist'"!="" exit
     local generate `e(generate)' `e(wgenerate)' `e(dygenerate)' ///
         `e(cemgenerate)' `e(ifgenerate)' `e(idgenerate)' `e(dxgenerate)'
     if `:list sizeof generate' {
@@ -2226,7 +2227,7 @@ program Estimate, eclass sortpreserve
         GENerate GENerate2(str) DYgenerate DYgenerate2(str)                   ///
         WGENerate WGENerate2(str) replace                                     ///
         nose vce(passthru) IFGENerate IFGENerate2(str)                        ///
-        NOIsily noHEader noTABle noMTABle *                                   ///
+        NOIsily noHEader noTABle noMTABle NOGENLIST *                         ///
         ]
     if `"`nn2'"'=="" local nn2 0
     if "`wor'"!="" {
@@ -2290,6 +2291,7 @@ program Estimate, eclass sortpreserve
     _get_diopts diopts options, `options'
     OptNotAllowed, `options'
     c_local diopts `header' `table' `mtable' `diopts'
+    c_local nogenlist `nogenlist'
     
     // parse equations
     Parse_eq `subcmd' `anything' // returns tvar, xvars, ematch, novars, ovars, ovar_#, ovarnm_#, xvars_#
@@ -2524,7 +2526,10 @@ program Estimate, eclass sortpreserve
             tempvar wvar
             qui gen double `wvar' = `exp'
         }
-        else local wvar `exp'
+        else {
+            unab exp: `exp', min(1) max(1)
+            local wvar `exp'
+        }
         local exp `"= `exp'"'
         local wexp `"[`weight' = `wvar']"'
         local swexp `"`wexp'"'
