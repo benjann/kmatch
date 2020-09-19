@@ -18,21 +18,25 @@ To install `kmatch` from the SSC Archive, type
 
     . ssc install kmatch, replace
 
-in Stata. Stata version 11 or newer is required. Furthermore, the the `moremata` and `kdens` 
-packages are required. To install these packages from the SSC Archive, type
+in Stata. Stata version 11 or newer is required. Furthermore, the `moremata` 
+package is required. To install `moremata` from the SSC Archive, type
 
     . ssc install moremata, replace
-    . ssc install kdens, replace
 
 ---
 
 Installation from GitHub:
 
     . net install kmatch, replace from(https://raw.githubusercontent.com/benjann/kmatch/master/)
+    . net install moremata, replace from(https://raw.githubusercontent.com/benjann/moremata/master/)
 
 ---
 
 Main changes:
+
+    12aug2020
+    - kmatch now uses mm_density() for density estimation and no longer requires
+      -kdens- to be installed
 
     05may2020
     - kmatch could fail if weights were specified and the variable containing the

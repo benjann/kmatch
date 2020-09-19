@@ -1,17 +1,11 @@
-*! version 1.1.4  05may2020  Ben Jann
+*! version 1.1.5  12aug2020  Ben Jann
 
 local rc 0
 capt findfile lmoremata.mlib
 if _rc {
     di as error "-moremata- is required; type {stata ssc install moremata}"
-    local rc = _rc
+    error 499
 }
-capt findfile lkdens.mlib
-if _rc {
-    di as error "-kdens- is required; type {stata ssc install kdens}"
-    local rc = _rc
-}
-if `rc' error 499
 
 program kmatch, eclass prop(svyb svyj)
     version 11
@@ -1443,19 +1437,18 @@ program Postest_density
     tempvar d0 d1 md0 md1
     local kopts n(`n') `kernel' `ll' `ul' `reflection' `lc' `adaptive' `adaptive2'
     if `AT0' | `AT1' {  // determine bandwidth
-        qui _kdens `varlist' `wgt', gen(`d0') at(`at0') bw(`bwidth') `adjust' `kopts'
+        Kdens `varlist' `wgt', bw(`bwidth') `adjust' `kopts'
         local bwidth = r(width)
-        drop `d0'
     }
     else local bwidth .
     local kopts `kopts' bw(`bwidth')
     di as txt "(`overtag'bandwidth for `vnm4note' = " `bwidth' ")"
     if `AT0' {
-        qui _kdens `varlist' if `treat'==0 `wgt', gen(`d0') at(`at0') `kopts'
+        Kdens `varlist' if `treat'==0 `wgt', gen(`d0') at(`at0') `kopts'
     }
     else qui gen byte `d0' = .
     if `AT1' {
-        qui _kdens `varlist' if `treat'==1 `wgt', gen(`d1') at(`at1') `kopts'
+        Kdens `varlist' if `treat'==1 `wgt', gen(`d1') at(`at1') `kopts'
     }
     else qui gen byte `d1' = .
     if "`refstat'"=="ate" {
@@ -1463,12 +1456,12 @@ program Postest_density
         if "`wvar'"!="" qui gen double `ww' = `wvar'*(`nc'>0) + `mw'
         else            qui gen double `ww' = (`nc'>0) + `mw'
         if `MAT0' {
-            qui _kdens `varlist' if `treat'==0 [aw = `ww'], ///
+            Kdens `varlist' if `treat'==0 [aw = `ww'], ///
                 gen(`md0') at(`mat0') `kopts'
         }
         else qui gen byte `md0' = .
         if `MAT1' {
-            qui _kdens `varlist' if `treat'==1 [aw = `ww'], ///
+            Kdens `varlist' if `treat'==1 [aw = `ww'], ///
                 gen(`md1') at(`mat1') `kopts'
         }
         else qui gen byte `md1' = .
@@ -1476,24 +1469,24 @@ program Postest_density
     }
     else if "`refstat'"=="att" {
         if `MAT0' {
-            qui _kdens `varlist' if `treat'==0 [aw = `mw'], ///
+            Kdens `varlist' if `treat'==0 [aw = `mw'], ///
                 gen(`md0') at(`mat0') `kopts'
         }
         else qui gen byte `md0' = .
         if `MAT1' {
-            qui _kdens `varlist' if `treat'==1 & `nc' `wgt', ///
+            Kdens `varlist' if `treat'==1 & `nc' `wgt', ///
                 gen(`md1') at(`mat1') `kopts'
         }
         else qui gen byte `md1' = .
     }
     else if "`refstat'"=="atc" {
         if `MAT0' {
-            qui _kdens `varlist' if `treat'==0 & `nc' `wgt', ///
+            Kdens `varlist' if `treat'==0 & `nc' `wgt', ///
                 gen(`md0') at(`mat0') `kopts'
         }
         else qui gen byte `md0' = .
         if `MAT1' {
-            qui _kdens `varlist' if `treat'==1 [aw = `mw'], ///
+            Kdens `varlist' if `treat'==1 [aw = `mw'], ///
                 gen(`md1') at(`mat1') `kopts'
         }
         else qui gen byte `md1' = .
@@ -1538,6 +1531,54 @@ program Postest_density
     qui by `id': replace `d1' = . if _n==1
     two line `d0' `d1' `at', by(`by', `title' note("") `byopts') ///
         yti("Density") xti(`"`xti'"') `options'
+end
+
+program Kdens, rclass
+    syntax varname [if] [in] [aw/], [ gen(str) at(str) ///
+        n(str) bw(str) Kernel(name) ll(numlist max=1) ul(numlist max=1) ///
+        REFLection lc ///
+        ADJust(numlist max=1 >0) Adaptive Adaptive2(numlist int max=1 >=0) ]
+    if `"`kernel'"'=="" local kernel epan2
+    local napprox = max(`n', 512) // use approximation grid of at least 512 points
+    if "`adjust'"=="" local adjust 1
+    if "`adaptive2'"=="" {
+        if "`adaptive'"!="" local adaptive2 1
+        else                local adaptive2 0
+    }
+    if "`lc'"!="" local lc "linear correction"
+    local bc `reflection' `lc'
+    capt confirm number `bw'
+    if _rc==0 local bw bw(`bw')
+    Kdens_parse_bw, `bw'    // returns dpilevel, bw, bwtype
+    if "`bw'"!="" & `"`gen'"'=="" {
+        return local width = `bw' * `adjust'
+        exit
+    }
+    marksample touse
+    if `"`gen'"'!="" {
+        qui gen double `gen' = .
+    }
+    mata: Kmatch_Kdens()
+    return local width = `bw'
+end
+
+program Kdens_parse_bw
+    syntax [ , bw(numlist max=1 >0) Dpi Dpi2(numlist int max=1 >=0) * ]
+    if "`dpi2'"!="" {
+        local dpi dpi
+        c_local dpilevel `dpi2'
+    }
+    else c_local dpilevel 2
+    if "`bw'"!="" {
+        c_local bw `bw'
+        c_local bwtype
+    }
+    else {
+        c_local bw
+        local bwtype `dpi' `options'
+        if `"`bwtype'"'=="" local bwtype silverman
+        c_local bwtype `bwtype'
+    }
 end
 
 program Postest_cdensity
@@ -1656,7 +1697,7 @@ program Postest_cdensity
     tempvar d1 d2 d3
     local kopts n(`n') `kernel' `ll' `ul' `reflection' `lc' `adaptive' `adaptive2'
     if `AT1' {  // determine bandwidth
-        qui _kdens `varlist' `wgt', gen(`d1') at(`at1') bw(`bwidth') `adjust' `kopts'
+        Kdens `varlist' `wgt', gen(`d1') at(`at1') bw(`bwidth') `adjust' `kopts'
         local bwidth = r(width)
     }
     else {
@@ -1666,11 +1707,11 @@ program Postest_cdensity
     local kopts `kopts' bw(`bwidth')
     di as txt "(`overtag'bandwidth for `vnm4note' = " `bwidth' ")"
     if `AT2' {
-        qui _kdens `varlist' if `nc'==0 `wgt', gen(`d2') at(`at2') `kopts'
+        Kdens `varlist' if `nc'==0 `wgt', gen(`d2') at(`at2') `kopts'
     }
     else qui gen byte `d2' = .
     if `AT3' {
-        qui _kdens `varlist' if `nc' `wgt', gen(`d3') at(`at3') `kopts'
+        Kdens `varlist' if `nc' `wgt', gen(`d3') at(`at3') `kopts'
     }
     else qui gen byte `d3' = .
     
@@ -6767,6 +6808,31 @@ void Kmatch_ebalance()
     st_numscalar(st_local("maxdif"), mm_ebal_v(S))
     st_numscalar(st_local("iterations"), mm_ebal_i(S))
     st_store(., st_local("mw"), st_local("ebcontrol"), mw)
+}
+
+void Kmatch_Kdens()
+{
+    real scalar n
+    real colvector x, w
+    class mm_density scalar D
+    
+    D.kernel(st_local("kernel"), strtoreal(st_local("adaptive2")))
+    D.bw(st_local("bw")!="" ? strtoreal(st_local("bw")) : st_local("bwtype"),
+        strtoreal(st_local("adjust")), strtoreal(st_local("dpilevel")), 1)
+    D.support((strtoreal(st_local("ll")),strtoreal(st_local("ul"))), st_local("bc"), 0)
+    D.n(strtoreal(st_local("napprox")))
+    x = st_data(., st_local("varlist"), st_local("touse"))
+    if (st_local("weight")!="") {
+        w = st_data(., st_local("exp"), st_local("touse"))
+        w = w * rows(x) / sum(w) // normalize weights
+    }
+    else w = 1
+    D.data(x, w)
+    if (st_local("at")!="") {
+        n = strtoreal(st_local("n"))
+        st_store((1,n), st_local("gen"), D.d(st_data((1,n), st_local("at")), 0))
+    }
+    st_local("bw", strofreal(D.h(), "%18.0g"))
 }
 
 end

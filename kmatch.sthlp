@@ -1,5 +1,5 @@
 {smcl}
-{* 11mar2020}{...}
+{* 12aug2020}{...}
 {hi:help kmatch}{...}
 {right:{help kmatch##syntax:Syntax} - {help kmatch##desc:Description} - {help kmatch##mdoptions:Options} - {help kmatch##ex:Examples} - {help kmatch##eret:Stored results} - {help kmatch##refs:References}}
 {hline}
@@ -508,7 +508,7 @@
 {synopt :{opt refl:ection} | {opt lc}}select the boundary correction technique;
     default is renormalization
     {p_end}
-{synopt :{opt k:ernel(kernel)}}type of kernel function; see {helpb kdens}
+{synopt :{opt k:ernel(kernel)}}type of kernel function
     {p_end}
 {synoptline}
 
@@ -618,10 +618,8 @@
     bandwidth selection.
 
 {pstd}
-    {cmd:kmatch} requires {cmd:kdens} and {cmd:moremata}
+    {cmd:kmatch} requires {cmd:moremata}
     to be installed on the system. See
-    {net "describe kdens, from(http://fmwww.bc.edu/repec/bocode/k/)":{bf:ssc describe kdens}}
-    and
     {net "describe moremata, from(http://fmwww.bc.edu/repec/bocode/m/)":{bf:ssc describe moremata}}.
 
 
@@ -1719,8 +1717,9 @@
     {opt bw:idth(#|type)} sets the bandwidth to {it:#} or
     specifies the automatic bandwidth selector,
     where {it:type} is {cmdab:s:ilverman} (the default),
-    {cmdab:n:ormalscale}, {cmdab:o:versmoothed}, {opt sj:pi}, or
-    {cmdab:d:pi}[{cmd:(}{it:#}{cmd:)}]. See {helpb kdens} for details.
+    {cmdab:n:ormalscale}, {cmdab:o:versmoothed}, {opt sj:pi},
+    {cmdab:d:pi}[{cmd:(}{it:#}{cmd:)}], or {opt isj}. See 
+    {helpb mf_mm_density:mm_density()} for details.
 
 {phang}
     {opt adjust(#)} causes the bandwidth to be multiplied by
@@ -1728,7 +1727,8 @@
 
 {phang}
     {cmd:adaptive}[{cmd:(}{it:#}{cmd:)}] causes the adaptive kernel density
-    estimator to be used. See {helpb kdens} for details.
+    estimator to be used. See 
+    {helpb mf_mm_density:mm_density()} for details.
 
 {phang}
     {opt ll(#)} and {opt ul(#)} specify the lower and upper boundary of the
@@ -1738,13 +1738,14 @@
     {cmd:ul()} will be set to 0 and 1.
 
 {phang}
-    {opt reflection} and {opt lc} select the boundary
+    {opt reflection} and {opt lc} (linear correction) select the boundary
     correction technique to be used for variables with bounded support. The default
-    technique is renormalization. See {helpb kdens} for details.
+    technique is renormalization. See 
+    {helpb mf_mm_density:mm_density()} for details.
 
 {phang}
-    {opt kernel(kernel)} specifies the kernel function. See {helpb kdens} for
-    available kernels.
+    {opt kernel(kernel)} specifies the kernel function. Default is {cmd:kernel(epan2)}. See 
+    {helpb mf_mm_density:mm_density()} for available kernels.
 
 
 {marker ex}{...}

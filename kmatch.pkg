@@ -3,7 +3,7 @@ d kmatch: module for multivariate-distance and propensity-score matching, includ
 d 
 d Author: Ben Jann, University of Bern, ben.jann@soz.unibe.ch
 d
-d Distribution-Date: 20200506
+d Distribution-Date: 20200919
 f kmatch.ado
 f kmatch.sthlp
 f kmatch_svyr.ado
