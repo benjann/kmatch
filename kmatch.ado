@@ -1,4 +1,4 @@
-*! version 1.1.5  12aug2020  Ben Jann
+*! version 1.1.6  27feb2026  Ben Jann
 
 local rc 0
 capt findfile lmoremata.mlib
@@ -362,26 +362,44 @@ program Display
     local linesize = max(79, c(linesize))
     local novars = e(N_ovars)
     if `"`header'"'=="" {
-        _coef_table_header, nomodeltest
+        local hflex 1
+        if      c(stata_version)<17            local hflex 0
+        else if d(`c(born_date)')<d(13jul2021) local hflex 0
+        local c1 49
+        local c2 = `c1' + 17 + 1 // 67
+        local c3 = `c2' + 2      // 69
+        if `hflex' local headopts head2left(17) head2right(10)
+        else       local headopts
+        _coef_table_header, nomodeltest `headopts'
+        if `hflex' {
+            // if _coef_table_header used more space than allocated
+            local offset1 = max(0, `s(head2_left)'  - 17)
+            local offset2 = max(0, `s(head2_right)' - 10)
+            local c1 = `c1' - `offset1' - `offset2'
+            local c2 = `c2' - `offset2'
+        }
+        local c1b = `c1' + 14 // 63
         if `"`e(nn)'"'!="" {
-            di as txt _col(49) "Neighbors:" _col(63) "min" _col(67) "= " ///
-                as res %10.0g e(nn_min)
+            di as txt _col(`c1') "Neighbors:" _col(`c1b') "min"/*
+                */ _col(`c2') "=" _col(`c3') as res %10.0g e(nn_min)
         }
         else if `"`e(kernel)'"'!="" {
-            di as txt _col(49) "Kernel" _col(67) "= " as res %10s e(kernel)
+            di as txt _col(`c1') "Kernel" _col(`c2') "=" _col(`c3')/*
+                */ as res %10s e(kernel)
         }
         else if `"`subcmd'"'=="eb" {
-            di as txt _col(49) "Balance tolerance" _col(67) "= " ///
-                as res %10.0g e(btolerance)
+            di as txt _col(`c1') "Balance tolerance" _col(`c2') "="/*
+                */ _col(`c3') as res %10.0g e(btolerance)
         }
         else di ""
         di as txt "Treatment   : " e(tvar) " = " as res e(tval) _c
         if `"`e(nn)'"'!="" {
-            di as txt _col(63) "max" _col(67) "= " as res %10.0g e(nn_max)
+            di as txt _col(`c1b') "max" _col(`c2') "=" _col(`c3')/*
+                */ as res %10.0g e(nn_max)
         }
         else if `"`e(ridge)'"'!="" {
-            di as txt _col(49) "Ridge parameter" _col(67) "= " ///
-                as res %10.0g e(ridge)
+            di as txt _col(`c1') "Ridge parameter" _col(`c2') "=" _col(`c3')/*
+                */ as res %10.0g e(ridge)
         }
         else di ""
         if `"`subcmd'"'=="md" {
@@ -5534,17 +5552,14 @@ void Kmatch_i_PS_nn(struct KmatchG scalar T, struct KmatchG scalar C,
         fw = C.fw[|a\b|]
         n = sum(fw)
     }
-    if (S.keepall==0) {
-        // exclude if less than nn() neighbors
-        if (n < S.nn) {
-            if (S.w==1) { // skip ties
-                while (i<t1) {
-                    if (T.S[i+1]==c) i++
-                    else break
-                }
+    if (n==0 | (S.keepall==0 & n<S.nn)) { // exclude if no or too few neighbors
+        if (S.w==1) { // skip ties
+            while (i<t1) {
+                if (T.S[i+1]==c) i++
+                else break
             }
-            return
         }
+        return
     }
     T.nc[i] = n
     // weights
@@ -5804,17 +5819,14 @@ void Kmatch_i_MD_nn(struct KmatchG scalar T, struct KmatchG scalar C,
     if (S.ID) {
         if (S.ID!=1) MD = sqrt(MD[p])
     }
-    if (S.keepall==0) {
-        // exclude if less than nn() neighbors
-        if (n<S.nn) {
-            if (S.w==1) { // skip ties
-                while (i<t1) {
-                    if (T.X[i+1,]==T.X[i,]) i++
-                    else break
-                }
+    if (n==0 | (S.keepall==0 & n<S.nn)) { // exclude if no or too few neighbors
+        if (S.w==1) { // skip ties
+            while (i<t1) {
+                if (T.X[i+1,]==T.X[i,]) i++
+                else break
             }
-            return
         }
+        return
     }
     p = (aa-1) :+ p
     T.nc[i] = n

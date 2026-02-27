@@ -34,6 +34,11 @@ Installation from GitHub:
 
 Main changes:
 
+    27feb2026 (version 1.1.6)
+    - option idgenerate() could fail if -keepall- was specified in nearest-neighbor
+      matching with caliper; this is fixed
+    - fixed alignment of header in Stata 17 or newer
+
     12aug2020
     - kmatch now uses mm_density() for density estimation and no longer requires
       -kdens- to be installed

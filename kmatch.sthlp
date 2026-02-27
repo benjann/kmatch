@@ -1,8 +1,9 @@
 {smcl}
-{* 12aug2020}{...}
+{* 27feb2026}{...}
 {hi:help kmatch}{...}
-{right:{help kmatch##syntax:Syntax} - {help kmatch##desc:Description} - {help kmatch##mdoptions:Options} - {help kmatch##ex:Examples} - {help kmatch##eret:Stored results} - {help kmatch##refs:References}}
+{right:{browse "http://github.com/benjann/kmatch"}}
 {hline}
+{right:{help kmatch##syntax:Syntax} - {help kmatch##desc:Description} - {help kmatch##mdoptions:Options} - {help kmatch##ex:Examples} - {help kmatch##eret:Stored results} - {help kmatch##refs:References}}
 
 {title:Title}
 
@@ -1835,7 +1836,7 @@
 {p 8 12 2}. {stata kmatch ps mbsmoke mage fage prenatal1 mmarried fbaby (bweight), att nn(5)}{p_end}
 
 {pstd}
-    Compare results to {helpb teffects nnmatch}
+    Compare results to {helpb teffects psmatch}
 
 {p 8 12 2}. {stata teffects psmatch (bweight) (mbsmoke mage fage prenatal1 mmarried fbaby), atet nn(5)}
 
